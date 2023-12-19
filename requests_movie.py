@@ -1,8 +1,9 @@
 import asyncio
-import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
+from aiogram import F
 import aiohttp
+import keyboards
 
 API_TOKEN = '6894979902:AAEbC0-cA2Q-I29SZ5h53mGBmQwGB9ER7Ok'
 bot = Bot(token=API_TOKEN)
@@ -17,7 +18,17 @@ headers = {
 
 @dp.message(Command('start'))
 async def send_welcome(message: types.Message):
-    await message.reply("Hello!")
+    await message.reply("Hello!", reply_markup=keyboards.main_kb)
+
+
+@dp.callback_query(F.data == "like")
+async def save_to_my_films(callback: types.CallbackQuery):
+    await callback.message.answer("хороший выбор")
+
+
+@dp.callback_query(F.data == "dislike")
+async def save_to_bad_films(callback: types.CallbackQuery):
+    await callback.message.answer("понял твой выбор")
 
 
 @dp.message()
@@ -29,7 +40,16 @@ async def start_request(message: types.Message):
     response_list.pop(0)
     response_str = "\n".join(map(str, response_list))
 
-    await message.answer_photo(poster_url, response_str)
+    await message.answer_photo(poster_url, response_str, reply_markup=keyboards.react_kb)
+
+
+def get_keyboard():
+    buttons = [
+        types.InlineKeyboardButton(text="Нравится", callback_data="good_film"),
+        types.InlineKeyboardButton(text="Говно", callback_data="bad_film")
+    ]
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=buttons)
+    return keyboard
 
 
 async def get_movie():
@@ -46,6 +66,7 @@ async def get_movie():
 
                 trailers_urls = [trailer["url"] for trailer in data["videos"]["trailers"]]
 
+                # print(data)
                 print(name)
                 print(rating)
                 print(year)
