@@ -28,6 +28,16 @@ async def send_welcome(message: types.Message):
     db_logic.create_tables()
 
 
+@dp.message(F.text == "Список для просмотра")
+async def show_my_films(message: types.Message):
+    user_id = message.from_user.id
+    favorite_list = [film[0] for film in db_logic.get_liked_movies_for_user(user_id)]
+    favorite_str = "\n".join(favorite_list)
+
+    await message.answer(favorite_str)
+
+
+
 @dp.callback_query(F.data == "like")
 async def save_to_my_films(callback: types.CallbackQuery):
     user_id = int(callback.from_user.id)
@@ -121,5 +131,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    print_db_state()
+    # print_db_state()
+    print(db_logic.get_liked_movies_for_user(332808756))
     asyncio.run(main())

@@ -61,6 +61,15 @@ def insert_movie(movie_id, movie_name, movie_rating, movie_year):
     conn.commit()
 
 
+def get_liked_movies_for_user(user_id):
+    cursor.execute(f'''
+        SELECT movies.movie_name FROM movies JOIN liked_movies ON movies.movie_id = liked_movies.liked_movie_id
+        WHERE liked_movies.user_id == {user_id}
+    ''')
+
+    return cursor.fetchall()
+
+
 def print_liked():
     cursor.execute("SELECT * FROM liked_movies")
     rows = cursor.fetchall()
