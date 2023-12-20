@@ -31,6 +31,29 @@ def create_tables():
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS family (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            family_name TEXT,
+            owner_id INTEGER
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_family (
+            user_id INTEGER,
+            family_id INTEGER
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_recommendation (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            recommended_movie_id INTEGER
+        )
+    ''')
+
     conn.commit()
 
 
@@ -61,6 +84,33 @@ def insert_movie(movie_id, movie_name, movie_rating, movie_year):
     conn.commit()
 
 
+def insert_family(family_name, owner_id):
+    cursor.execute('''
+        INSERT INTO family (family_name, owner_id)
+        VALUES(?, ?)
+    ''', (family_name, owner_id))
+
+    conn.commit()
+
+
+def insert_user_family(user_id, family_id):
+    cursor.execute('''
+        INSERT INTO user_family (user_id, family_id)
+        VALUES(?, ?)
+    ''', (user_id, family_id))
+
+    conn.commit()
+
+
+def insert_recommendation(user_id, recommended_movie_id):
+    cursor.execute('''
+        INSERT INTO user_recommendation (user_id, recommended_movie_id)
+        VALUES(?, ?)
+    ''', (user_id, recommended_movie_id))
+
+    conn.commit()
+
+
 def get_liked_movies_for_user(user_id):
     cursor.execute(f'''
         SELECT movies.movie_id, movies.movie_name FROM movies JOIN liked_movies ON movies.movie_id = liked_movies.liked_movie_id
@@ -69,6 +119,7 @@ def get_liked_movies_for_user(user_id):
 
     return cursor.fetchall()
 
+
 def get_disliked_movies_for_user(user_id):
     cursor.execute(f'''
         SELECT movies.movie_id, movies.movie_name FROM movies JOIN disliked_movies ON movies.movie_id = disliked_movies.disliked_movie_id
@@ -76,6 +127,8 @@ def get_disliked_movies_for_user(user_id):
     ''')
 
     return cursor.fetchall()
+
+
 
 
 def print_liked():

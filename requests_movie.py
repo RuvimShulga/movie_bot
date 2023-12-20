@@ -1,10 +1,12 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
+from aiogram.methods.get_chat import GetChat
 from aiogram import F
 import aiohttp
 import aiofiles
 import json
+import requests
 
 import keyboards
 import db_logic
@@ -76,6 +78,8 @@ async def save_to_bad_films(callback: types.CallbackQuery):
 
 @dp.message()
 async def start_request(message: types.Message):
+    await get_all_chats("@ruvim_shulga")
+
     await clean_all_inline_kb()
 
     user_id = message.from_user.id
@@ -88,6 +92,7 @@ async def start_request(message: types.Message):
 
     inline_message = await message.answer_photo(poster_url, answer_string, reply_markup=keyboards.react_kb)
     inline_messages.append(inline_message)
+
 
 async def get_movie_data(user_id):
     async with aiohttp.ClientSession() as session:
@@ -103,7 +108,6 @@ async def get_movie_data(user_id):
 
                 else:
                     print(f"Ошибка {resp.status}: {await resp.text()}")
-
 
 
 async def save_json_to_file(json_data, filename):
@@ -146,6 +150,51 @@ async def clean_all_inline_kb():
         inline_messages.remove(message)
 
 
+
+async def get_user_is(username):
+    user = await bot.get_chat(username)
+
+    user_id = user.id
+    print(user_id)
+    return user_id
+
+
+async def get_data_of_new_family_member(username):
+    url = f"https://api.telegram.org/bot{API_TOKEN}/getChat?chat_id={username}"
+    # print(url)
+    response = requests.get(url)
+    data = response.json()
+    print(data)
+    # user_id = data.get('result', {}).get('id')
+    # chat = await bot.get_chat(chat_id=username)
+    # print(chat.user.id)
+    # return user_id
+
+def send_request_in_family(username):
+    url = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
+    params = {
+        "chat_id": username,
+        "text": "tolya"
+    }
+    response = requests.post(url, json=params)
+    if response.status_code == 200:
+        print("Сообщение успешно отправлено")
+    else:
+        print("Ошибка при отправке сообщения")
+
+
+def send_message_to_user(username, message):
+    url = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
+    payload = {"chat_id": username, "text": message}
+    response = requests.post(url, json=payload)
+    print(response.json())
+
+
+async def get_all_chats(username):
+    text = "tolye"
+    await bot.send_message(username, text)
+
+
 def print_db_state():
     print("Liked:\n", db_logic.print_liked())
     print()
@@ -155,6 +204,8 @@ def print_db_state():
 
 
 async def main():
+
+
     print("Bot is starting...")
     try:
         await dp.start_polling(bot)
@@ -162,8 +213,10 @@ async def main():
         print(f"An error occurred: {e}")
 
 
-
 if __name__ == "__main__":
+    # send_request_in_family("388610937")
+
+
     # print_db_state()
     # print(db_logic.get_liked_movies_for_user(332808756))
     asyncio.run(main())
