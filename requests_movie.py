@@ -13,11 +13,14 @@ API_TOKEN = '6894979902:AAEbC0-cA2Q-I29SZ5h53mGBmQwGB9ER7Ok'
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-token_kinopoisk = "2MPR2W5-BKP4DAB-KVCT0FC-6TXFK5Q"
+# token_kinopoisk = "2MPR2W5-BKP4DAB-KVCT0FC-6TXFK5Q"  этот токен недоступен до 21 декабря
+token_kinopoisk = "Q3V3TCZ-2DT4J7P-PS0J8MK-KEHGBWG"
 url = "https://api.kinopoisk.dev/v1.4/movie/random?rating.imdb=7-10&lists=top250"
 headers = {
     "X-API-KEY": f"{token_kinopoisk}"
 }
+
+inline_messages = []
 
 
 @dp.message(Command('start'))
@@ -31,7 +34,8 @@ async def send_welcome(message: types.Message):
 @dp.message(F.text == "Список для просмотра")
 async def show_my_films(message: types.Message):
     user_id = message.from_user.id
-    favorite_list = [film[0] for film in db_logic.get_liked_movies_for_user(user_id)]
+    favorite_list = [film[1] for film in db_logic.get_liked_movies_for_user(user_id)]
+    # print(favorite_list)
     favorite_str = "\n".join(favorite_list)
 
     await message.answer(favorite_str)
@@ -41,7 +45,7 @@ async def show_my_films(message: types.Message):
 @dp.callback_query(F.data == "like")
 async def save_to_my_films(callback: types.CallbackQuery):
     user_id = int(callback.from_user.id)
-    await callback.message.answer("хороший выбор")
+    await callback.message.answer("Фильм добавлен в список для просмотра")
 
     data = await load_json_from_file("movie_data.json")
     movie_id = data["id"]
@@ -51,11 +55,13 @@ async def save_to_my_films(callback: types.CallbackQuery):
     except Exception as e:
         print(f"Error: {e}")
 
+    await callback.message.edit_reply_markup()
+
 
 @dp.callback_query(F.data == "dislike")
 async def save_to_bad_films(callback: types.CallbackQuery):
     user_id = int(callback.from_user.id)
-    await callback.message.answer("понял твой выбор")
+    await callback.message.answer("Этот фильм больше не будет рекомендоваться")
 
     data = await load_json_from_file("movie_data.json")
     movie_id = data["id"]
@@ -65,28 +71,39 @@ async def save_to_bad_films(callback: types.CallbackQuery):
     except Exception as e:
         print(f"Error: {e}")
 
+    await callback.message.edit_reply_markup()
+
 
 @dp.message()
 async def start_request(message: types.Message):
-    await get_movie_data()
+    await clean_all_inline_kb()
+
+    user_id = message.from_user.id
+    await get_movie_data(user_id)
 
     current_movie_data = await load_json_from_file("movie_data.json")
     poster_url = current_movie_data["poster"]["url"]
 
     answer_string = await get_answer_str()
 
-    await message.answer_photo(poster_url, answer_string, reply_markup=keyboards.react_kb)
+    inline_message = await message.answer_photo(poster_url, answer_string, reply_markup=keyboards.react_kb)
+    inline_messages.append(inline_message)
 
-
-async def get_movie_data():
+async def get_movie_data(user_id):
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers, ssl=False) as resp:
-            if resp.status == 200:
-                current_movie_data = await resp.json()
-                await save_json_to_file(current_movie_data, "movie_data.json")
+        while True:
+            async with session.get(url, headers=headers, ssl=False) as resp:
+                if resp.status == 200:
+                    current_movie_data = await resp.json()
+                    await save_json_to_file(current_movie_data, "movie_data.json")
 
-            else:
-                print(f"Ошибка {resp.status}: {await resp.text()}")
+                    disliked_movies_id = [movie[0] for movie in db_logic.get_disliked_movies_for_user(user_id)]
+                    if current_movie_data["id"] not in disliked_movies_id:
+                        break
+
+                else:
+                    print(f"Ошибка {resp.status}: {await resp.text()}")
+
 
 
 async def save_json_to_file(json_data, filename):
@@ -110,11 +127,23 @@ async def get_answer_str():
     description = str(current_movie_data["description"])
     trailers_urls = [trailer["url"] for trailer in current_movie_data["videos"]["trailers"]]
 
-    db_logic.insert_movie(int(id), name, float(rating), int(year))
+    try:
+        db_logic.insert_movie(int(id), name, float(rating), int(year))
+    except Exception as e:
+        print(f"Error: {e}")
 
     final_list = [name, rating, year, description, *trailers_urls]
 
     return "\n".join(final_list)
+
+
+async def clean_all_inline_kb():
+    for message in inline_messages:
+        try:
+            await bot.edit_message_reply_markup(message.chat.id, message_id = message.message_id, reply_markup=None)
+        except Exception as e:
+            print(f"Error: {e}")
+        inline_messages.remove(message)
 
 
 def print_db_state():
@@ -127,10 +156,14 @@ def print_db_state():
 
 async def main():
     print("Bot is starting...")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 
 
 if __name__ == "__main__":
     # print_db_state()
-    print(db_logic.get_liked_movies_for_user(332808756))
+    # print(db_logic.get_liked_movies_for_user(332808756))
     asyncio.run(main())

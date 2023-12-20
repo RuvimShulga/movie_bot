@@ -63,8 +63,16 @@ def insert_movie(movie_id, movie_name, movie_rating, movie_year):
 
 def get_liked_movies_for_user(user_id):
     cursor.execute(f'''
-        SELECT movies.movie_name FROM movies JOIN liked_movies ON movies.movie_id = liked_movies.liked_movie_id
+        SELECT movies.movie_id, movies.movie_name FROM movies JOIN liked_movies ON movies.movie_id = liked_movies.liked_movie_id
         WHERE liked_movies.user_id == {user_id}
+    ''')
+
+    return cursor.fetchall()
+
+def get_disliked_movies_for_user(user_id):
+    cursor.execute(f'''
+        SELECT movies.movie_id, movies.movie_name FROM movies JOIN disliked_movies ON movies.movie_id = disliked_movies.disliked_movie_id
+        WHERE disliked_movies.user_id == {user_id}
     ''')
 
     return cursor.fetchall()
