@@ -37,10 +37,27 @@ async def send_welcome(message: types.Message):
 async def show_my_films(message: types.Message):
     user_id = message.from_user.id
     favorite_list = [film[1] for film in db_logic.get_liked_movies_for_user(user_id)]
-    # print(favorite_list)
-    favorite_str = "\n".join(favorite_list)
+    
+    favorite_str = "\n".join(f"{i+1}. {film}" for i, film in enumerate(favorite_list))
 
     await message.answer(favorite_str)
+
+
+@dp.message(F.text == "Удалить из списка")
+async def remove_from_favorite_list(message: types.Message):
+    await show_my_films(message)
+
+    await message.answer("Введите целое число - номер просмотренного фильма")
+
+    try:
+        # Ждем ответ от пользователя, таймаут можно установить по вашему усмотрению
+        response = await bot.wait_for('message', timeout=100)
+        movie_number_in_list = int(response.text)
+    except Exception as e:
+        print(f"Error: {e}")
+
+    print(movie_number_in_list)
+    # db_logic.delete_liked(user_id, liked_movie_id)
 
 
 

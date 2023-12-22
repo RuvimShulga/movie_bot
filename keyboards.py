@@ -8,7 +8,8 @@ from aiogram.types import (
 main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="Следующий фильм")],
-        [KeyboardButton(text="Список для просмотра")]
+        [KeyboardButton(text="Список для просмотра"),
+         KeyboardButton(text="Удалить из списка")]
     ],
     resize_keyboard=True
 )

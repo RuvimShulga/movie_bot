@@ -84,6 +84,7 @@ def insert_movie(movie_id, movie_name, movie_rating, movie_year):
     conn.commit()
 
 
+<<<<<<< HEAD
 def insert_family(family_name, owner_id):
     cursor.execute('''
         INSERT INTO family (family_name, owner_id)
@@ -109,6 +110,12 @@ def insert_recommendation(user_id, recommended_movie_id):
     ''', (user_id, recommended_movie_id))
 
     conn.commit()
+=======
+def delete_liked(user_id, liked_movie_id):
+    cursor.execute(f'''
+        DELETE FROM liked_movies WHERE user_id = {user_id} and movie_id = {liked_movie_id}
+    ''') 
+>>>>>>> fefba72 (to save)
 
 
 def get_liked_movies_for_user(user_id):
