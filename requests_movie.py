@@ -1,7 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
-from aiogram.methods.get_chat import GetChat
+from aiogram.fsm.context import FSMContext
 from aiogram import F
 import aiohttp
 import aiofiles
@@ -9,7 +9,10 @@ import json
 import requests
 
 import keyboards
-import db_logic
+from  db_logic import Database
+from states import Form
+
+db = Database('movies.db')
 
 API_TOKEN = '6894979902:AAEbC0-cA2Q-I29SZ5h53mGBmQwGB9ER7Ok'
 bot = Bot(token=API_TOKEN)
@@ -28,15 +31,18 @@ inline_messages = []
 @dp.message(Command('start'))
 async def send_welcome(message: types.Message):
     user_id = message.from_user.id
+    username = str(message.from_user.username)
+    if not db.user_exists(user_id):
+        db.add_user(user_id, username)
+
     await message.reply(f"Hello {user_id}!", reply_markup=keyboards.main_kb)
 
-    db_logic.create_tables()
 
 
 @dp.message(F.text == "Список для просмотра")
 async def show_my_films(message: types.Message):
     user_id = message.from_user.id
-    favorite_list = [film[1] for film in db_logic.get_liked_movies_for_user(user_id)]
+    favorite_list = [film[1] for film in    db.get_liked_movies_for_user(user_id)]
     
     favorite_str = "\n".join(f"{i+1}. {film}" for i, film in enumerate(favorite_list))
 
@@ -57,7 +63,7 @@ async def remove_from_favorite_list(message: types.Message):
         print(f"Error: {e}")
 
     print(movie_number_in_list)
-    # db_logic.delete_liked(user_id, liked_movie_id)
+    #   db.delete_liked(user_id, liked_movie_id)
 
 
 
@@ -70,7 +76,7 @@ async def save_to_my_films(callback: types.CallbackQuery):
     movie_id = data["id"]
 
     try:
-        db_logic.insert_liked(user_id, movie_id)
+        db.insert_liked(user_id, movie_id)
     except Exception as e:
         print(f"Error: {e}")
 
@@ -86,16 +92,32 @@ async def save_to_bad_films(callback: types.CallbackQuery):
     movie_id = data["id"]
 
     try:
-        db_logic.insert_disliked(user_id, movie_id)
+        db.insert_disliked(user_id, movie_id)
     except Exception as e:
         print(f"Error: {e}")
 
     await callback.message.edit_reply_markup()
 
+@dp.message(F.text == "Добавить в семью")
+async def add_user_to_family(message: types.Message, state: FSMContext):
+    await state.set_state(Form.username)
+    await message.answer("Введите username пользователя, которого хотите добавить в семью. @ не нужна!")
+    
+
+@dp.message(Form.username)
+async def form_username(message: types.Message, state: FSMContext):
+    await state.update_data(username=message.text)
+    data = await state.get_data()
+    await state.clear()
+
+    username = data.get("username")
+    user_id = db.get_user_id(username)
+
+    await send_request_in_family(message.from_user.username, user_id)
+
 
 @dp.message()
 async def start_request(message: types.Message):
-    await get_all_chats("@ruvim_shulga")
 
     await clean_all_inline_kb()
 
@@ -119,7 +141,7 @@ async def get_movie_data(user_id):
                     current_movie_data = await resp.json()
                     await save_json_to_file(current_movie_data, "movie_data.json")
 
-                    disliked_movies_id = [movie[0] for movie in db_logic.get_disliked_movies_for_user(user_id)]
+                    disliked_movies_id = [movie[0] for movie in db.get_disliked_movies_for_user(user_id)]
                     if current_movie_data["id"] not in disliked_movies_id:
                         break
 
@@ -149,7 +171,7 @@ async def get_answer_str():
     trailers_urls = [trailer["url"] for trailer in current_movie_data["videos"]["trailers"]]
 
     try:
-        db_logic.insert_movie(int(id), name, float(rating), int(year))
+        db.insert_movie(int(id), name, float(rating), int(year))
     except Exception as e:
         print(f"Error: {e}")
 
@@ -167,62 +189,21 @@ async def clean_all_inline_kb():
         inline_messages.remove(message)
 
 
+async def send_request_in_family(from_username, to_user_id):
+    message = f"Вам пришел запрос на добавление в семью от {from_username}"
+    await bot.send_message(to_user_id, message, reply_markup=keyboards.family_kb)
 
-async def get_user_is(username):
-    user = await bot.get_chat(username)
-
-    user_id = user.id
-    print(user_id)
-    return user_id
-
-
-async def get_data_of_new_family_member(username):
-    url = f"https://api.telegram.org/bot{API_TOKEN}/getChat?chat_id={username}"
-    # print(url)
-    response = requests.get(url)
-    data = response.json()
-    print(data)
-    # user_id = data.get('result', {}).get('id')
-    # chat = await bot.get_chat(chat_id=username)
-    # print(chat.user.id)
-    # return user_id
-
-def send_request_in_family(username):
-    url = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
-    params = {
-        "chat_id": username,
-        "text": "tolya"
-    }
-    response = requests.post(url, json=params)
-    if response.status_code == 200:
-        print("Сообщение успешно отправлено")
-    else:
-        print("Ошибка при отправке сообщения")
-
-
-def send_message_to_user(username, message):
-    url = f"https://api.telegram.org/bot{API_TOKEN}/sendMessage"
-    payload = {"chat_id": username, "text": message}
-    response = requests.post(url, json=payload)
-    print(response.json())
-
-
-async def get_all_chats(username):
-    text = "tolye"
-    await bot.send_message(username, text)
 
 
 def print_db_state():
-    print("Liked:\n", db_logic.print_liked())
+    print("Liked:\n",   db.print_liked())
     print()
-    print("Disliked:\n", db_logic.print_disliked())
+    print("Disliked:\n",    db.print_disliked())
     print()
-    print("ALL:\n", db_logic.print_movies())
+    print("ALL:\n", db.print_movies())
 
 
 async def main():
-
-
     print("Bot is starting...")
     try:
         await dp.start_polling(bot)
@@ -231,9 +212,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    # send_request_in_family("388610937")
-
-
-    # print_db_state()
-    # print(db_logic.get_liked_movies_for_user(332808756))
     asyncio.run(main())
