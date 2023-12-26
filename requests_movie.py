@@ -9,8 +9,9 @@ import json
 import requests
 
 import keyboards
-from  db_logic import Database
+from db_logic import Database
 from states import Form
+import orders
 
 db = Database('movies.db')
 
@@ -98,6 +99,33 @@ async def save_to_bad_films(callback: types.CallbackQuery):
 
     await callback.message.edit_reply_markup()
 
+
+@dp.callback_query(F.data == "accept")
+async def accepting_in_family(callback: types.CallbackQuery):
+    order = orders.session.query(orders.Order).filter(orders.Order.to_user == callback.from_user.id).first()
+    order.status = "accepted"
+
+    await callback.message.answer("Теперь вы в семье!")
+    await bot.send_message(order.from_user, f"Ваш запрос к {db.get_username(order.to_user)} был принят!")
+
+    orders.session.commit()
+
+    await callback.message.edit_reply_markup()
+
+
+@dp.callback_query(F.data == "reject")
+async def rejecting(callback: types.CallbackQuery):
+    order = orders.session.query(orders.Order).filter(orders.Order.to_user == callback.from_user.id).first()
+    order.status = "rejected"
+
+    await callback.message.answer("Запрос отклонен")
+    await bot.send_message(order.from_user, f"Ваш запрос к {db.get_username(order.to_user)} был отклонен")
+
+    orders.session.commit()
+
+    await callback.message.edit_reply_markup()
+
+
 @dp.message(F.text == "Добавить в семью")
 async def add_user_to_family(message: types.Message, state: FSMContext):
     await state.set_state(Form.username)
@@ -110,10 +138,16 @@ async def form_username(message: types.Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
-    username = data.get("username")
-    user_id = db.get_user_id(username)
+    from_username = message.from_user.username
+    from_user_id = message.from_user.id
 
-    await send_request_in_family(message.from_user.username, user_id)
+    to_username = data.get("username")
+    try:
+        to_user_id = db.get_user_id(to_username)
+        await validation_and_send_request(from_username, to_username, from_user_id, to_user_id)
+    except BaseException as e:
+        await message.answer(f"Пользователь {to_username} не подключен к боту.")
+        print(f"error: {e}")
 
 
 @dp.message()
@@ -131,6 +165,28 @@ async def start_request(message: types.Message):
 
     inline_message = await message.answer_photo(poster_url, answer_string, reply_markup=keyboards.react_kb)
     inline_messages.append(inline_message)
+
+
+async def validation_and_send_request(from_username, to_username, from_user_id, to_user_id):
+    resend = False
+    order_exists = False
+    all_request_from_user = orders.session.query(orders.Order).filter(orders.Order.from_user == from_user_id).all()
+    for request in all_request_from_user:
+        if request.to_user == to_user_id:
+            order_exists = True
+            await bot.send_message(from_user_id, f"Вы уже отправили запрос этому пользователю. Статус: {request.status}")
+            if request.status == 'rejected':
+                resend = True
+                await bot.send_message(from_user_id, "Запрос будет отправлен снова, так как был отклонен")
+            break
+    else:
+        order = orders.Order(from_user=from_user_id, to_user=to_user_id, status='awaiting')
+        orders.session.add(order)
+        orders.session.commit()
+
+    if resend or not order_exists:
+        await send_request_in_family(from_username, to_user_id)
+        await bot.send_message(from_user_id, f"Запрос успешно отправлен пользователю {to_username}")
 
 
 async def get_movie_data(user_id):
@@ -183,7 +239,7 @@ async def get_answer_str():
 async def clean_all_inline_kb():
     for message in inline_messages:
         try:
-            await bot.edit_message_reply_markup(message.chat.id, message_id = message.message_id, reply_markup=None)
+            await bot.edit_message_reply_markup(message.chat.id, message_id=message.message_id, reply_markup=None)
         except Exception as e:
             print(f"Error: {e}")
         inline_messages.remove(message)
@@ -204,6 +260,7 @@ def print_db_state():
 
 
 async def main():
+    db.delete_orders()
     print("Bot is starting...")
     try:
         await dp.start_polling(bot)

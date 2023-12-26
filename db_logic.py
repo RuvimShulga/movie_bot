@@ -6,6 +6,10 @@ class Database:
         self.connection = sqlite3.connect('movies.db')
         self.cursor = self.connection.cursor()
 
+    def delete_orders(self):
+        with self.connection:
+            self.cursor.execute("delete from orders")
+
     def add_user(self, user_id, username):
         with self.connection:
             self.cursor.execute("INSERT INTO users(user_id, username) VALUES(?, ?)", (user_id, username))
@@ -18,6 +22,10 @@ class Database:
     def get_user_id(self, username):
         with self.connection:
             return self.cursor.execute("SELECT user_id FROM users WHERE username = ?", (username,)).fetchmany(1)[0][0]
+
+    def get_username(self, user_id):
+        with self.connection:
+            return self.cursor.execute("SELECT username FROM users WHERE user_id = ?", (user_id,)).fetchmany(1)[0][0]
 
     def insert_liked(self, user_id, liked_movie_id):
         with self.connection:
