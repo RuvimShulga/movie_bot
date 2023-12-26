@@ -10,8 +10,8 @@ import requests
 
 import keyboards
 from db_logic import Database
-from states import Form
-import orders
+from states import Form, Family, Choice, Mode
+import orm
 
 db = Database('movies.db')
 
@@ -36,14 +36,57 @@ async def send_welcome(message: types.Message):
     if not db.user_exists(user_id):
         db.add_user(user_id, username)
 
-    await message.reply(f"Hello {user_id}!", reply_markup=keyboards.main_kb)
+    await message.reply(f"Hello {user_id}!", reply_markup=keyboards.start_kb)
 
+
+@dp.message(F.text == "Одиночный режим")
+async def single_mode(message: types.Message):
+    await message.answer("Теперь вы можете выбирать фильмы в свою собственную коллекцию!", reply_markup=keyboards.main_kb)
+
+
+@dp.message(F.text == "Создать семью")
+async def create_family(message: types.Message, state: FSMContext):
+    await state.set_state(Family.family_name)
+    await message.answer("Введите название для вашей семьи")
+
+
+@dp.message(Family.family_name)
+async def create_family_with_name(message: types.Message, state: FSMContext):
+    family_name = message.text
+    family = orm.Family(family_name=family_name, owner=message.from_user.id)
+    user_family = orm.UsersInFamily(user_id=message.from_user.id, family_id=family.id)
+    orm.session.add(family)
+    orm.session.add(user_family)
+    orm.session.commit()
+    await message.answer(f"Семья {family_name} успешно создана")
+    await state.clear()
+
+
+@dp.message(F.text == "Выбрать семью")
+async def select_family(message: types.Message, state: FSMContext):
+    families = orm.session.query(orm.Family).all()
+    for family in families:
+        family_button = keyboards.KeyboardButton(text=family.family_name)
+        keyboards.select_family_kb.keyboard[0].append(family_button)
+
+    await state.set_state(Choice.choice)
+    await message.answer("С помощью кнопок выберите семью", reply_markup=keyboards.select_family_kb)
+
+
+@dp.message(Choice.choice)
+async def move_to_family_room(message: types.Message, state: FSMContext):
+    family = message.text
+    await state.clear()
+    await state.set_state(Mode.mode)
+    await state.update_data(mode=family)
+    await state.update_data(choice=message.text)
+    await message.answer(f"Вы успешно переключились на комнату семьи {family}", reply_markup=keyboards.main_kb)
 
 
 @dp.message(F.text == "Список для просмотра")
 async def show_my_films(message: types.Message):
     user_id = message.from_user.id
-    favorite_list = [film[1] for film in    db.get_liked_movies_for_user(user_id)]
+    favorite_list = [film[1] for film in db.get_liked_movies_for_user(user_id)]
     
     favorite_str = "\n".join(f"{i+1}. {film}" for i, film in enumerate(favorite_list))
 
@@ -101,27 +144,32 @@ async def save_to_bad_films(callback: types.CallbackQuery):
 
 
 @dp.callback_query(F.data == "accept")
-async def accepting_in_family(callback: types.CallbackQuery):
-    order = orders.session.query(orders.Order).filter(orders.Order.to_user == callback.from_user.id).first()
+async def accepting_in_family(callback: types.CallbackQuery, state: FSMContext):
+    order = orm.session.query(orm.Order).filter(orm.Order.to_user == callback.from_user.id).first()
     order.status = "accepted"
+
+    user_id = callback.from_user.id
+    # family_id = orm.session.query(orm.Family).filter(orm.Family)
+    print(await state.get_data())
+
 
     await callback.message.answer("Теперь вы в семье!")
     await bot.send_message(order.from_user, f"Ваш запрос к {db.get_username(order.to_user)} был принят!")
 
-    orders.session.commit()
+    orm.session.commit()
 
     await callback.message.edit_reply_markup()
 
 
 @dp.callback_query(F.data == "reject")
 async def rejecting(callback: types.CallbackQuery):
-    order = orders.session.query(orders.Order).filter(orders.Order.to_user == callback.from_user.id).first()
+    order = orm.session.query(orm.Order).filter(orm.Order.to_user == callback.from_user.id).first()
     order.status = "rejected"
 
     await callback.message.answer("Запрос отклонен")
     await bot.send_message(order.from_user, f"Ваш запрос к {db.get_username(order.to_user)} был отклонен")
 
-    orders.session.commit()
+    orm.session.commit()
 
     await callback.message.edit_reply_markup()
 
@@ -147,10 +195,10 @@ async def form_username(message: types.Message, state: FSMContext):
         await validation_and_send_request(from_username, to_username, from_user_id, to_user_id)
     except BaseException as e:
         await message.answer(f"Пользователь {to_username} не подключен к боту.")
-        print(f"error: {e}")
+        print(e)
 
 
-@dp.message()
+@dp.message(F.text == "Следующий фильм")
 async def start_request(message: types.Message):
 
     await clean_all_inline_kb()
@@ -170,7 +218,7 @@ async def start_request(message: types.Message):
 async def validation_and_send_request(from_username, to_username, from_user_id, to_user_id):
     resend = False
     order_exists = False
-    all_request_from_user = orders.session.query(orders.Order).filter(orders.Order.from_user == from_user_id).all()
+    all_request_from_user = orm.session.query(orm.Order).filter(orm.Order.from_user == from_user_id).all()
     for request in all_request_from_user:
         if request.to_user == to_user_id:
             order_exists = True
@@ -180,9 +228,9 @@ async def validation_and_send_request(from_username, to_username, from_user_id, 
                 await bot.send_message(from_user_id, "Запрос будет отправлен снова, так как был отклонен")
             break
     else:
-        order = orders.Order(from_user=from_user_id, to_user=to_user_id, status='awaiting')
-        orders.session.add(order)
-        orders.session.commit()
+        order = orm.Order(from_user=from_user_id, to_user=to_user_id, status='awaiting')
+        orm.session.add(order)
+        orm.session.commit()
 
     if resend or not order_exists:
         await send_request_in_family(from_username, to_user_id)
@@ -260,7 +308,7 @@ def print_db_state():
 
 
 async def main():
-    db.delete_orders()
+    # db.delete_orders()
     print("Bot is starting...")
     try:
         await dp.start_polling(bot)

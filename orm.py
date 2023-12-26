@@ -14,6 +14,20 @@ class Order(Base):
     status = Column(String)
 
 
+class Family(Base):
+    __tablename__ = 'families'
+    id = Column(Integer, primary_key=True)
+    family_name = Column(String)
+    owner = Column(Integer)
+
+
+class UsersInFamily(Base):
+    __tablename__ = "user_family"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    family_id = Column(Integer)
+
+
 # Установка соединения с базой данных
 engine = create_engine('sqlite:///movies.db')
 Base.metadata.create_all(engine)

@@ -5,13 +5,30 @@ from aiogram.types import (
     InlineKeyboardMarkup
 )
 
+start_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Одиночный режим")],
+        [KeyboardButton(text="Создать семью")],
+        [KeyboardButton(text="Выбрать семью")]
+    ],
+    resize_keyboard=True
+
+)
+
+
 main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="Следующий фильм")],
         [KeyboardButton(text="Список для просмотра"),
          KeyboardButton(text="Удалить из списка")],
-         [KeyboardButton(text="Добавить в семью")]
+        [KeyboardButton(text="Выбрать семью"),
+         KeyboardButton(text="Добавить в семью")]
     ],
+    resize_keyboard=True
+)
+
+select_family_kb = ReplyKeyboardMarkup(
+    keyboard=[[]],
     resize_keyboard=True
 )
 
