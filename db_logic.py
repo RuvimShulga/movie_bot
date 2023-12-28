@@ -9,6 +9,14 @@ class Database:
     def delete_orders(self):
         with self.connection:
             self.cursor.execute("delete from orders")
+    
+    def drop_orders(self):
+        with self.connection:
+            self.cursor.execute("drop table orders")
+            
+    def delete_families(self):
+        with self.connection:
+            self.cursor.execute("delete from families")
 
     def add_user(self, user_id, username):
         with self.connection:

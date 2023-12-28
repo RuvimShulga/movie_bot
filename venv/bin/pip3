@@ -1,4 +1,4 @@
-#!/home/ruvim/movie_bot/venv/bin/python
+#!/Users/haydeewa/movie_bot/venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys

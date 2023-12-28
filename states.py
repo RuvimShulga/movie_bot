@@ -15,3 +15,6 @@ class Choice(StatesGroup):
 
 class Mode(StatesGroup):
     mode = State()
+    
+class CurrentMovie(StatesGroup):
+    movie_id = State()

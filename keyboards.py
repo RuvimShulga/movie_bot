@@ -22,7 +22,8 @@ main_kb = ReplyKeyboardMarkup(
         [KeyboardButton(text="Список для просмотра"),
          KeyboardButton(text="Удалить из списка")],
         [KeyboardButton(text="Выбрать семью"),
-         KeyboardButton(text="Добавить в семью")]
+         KeyboardButton(text="Добавить в семью")],
+        [KeyboardButton(text="Текущая семья")]
     ],
     resize_keyboard=True
 )
