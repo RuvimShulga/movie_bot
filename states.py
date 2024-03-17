@@ -8,6 +8,9 @@ class Form(StatesGroup):
 class Family(StatesGroup):
     family_name = State()
 
+class Delete(StatesGroup):
+    delete_movie = State()
+
 
 class Choice(StatesGroup):
     choice = State()

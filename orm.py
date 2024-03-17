@@ -6,16 +6,34 @@ from sqlalchemy.sql import func
 
 Base = declarative_base()
 
+class Users(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, unique=True)
+    username = Column(String)
+
 class Movies(Base):
     __tablename__ = "movies"
     id = Column(Integer, primary_key=True)
-    movie_id = Column(Integer, unique=True)
+    movie_id = Column(Integer)
     movie_name = Column(String)
     movie_rating = Column(Float)
     movie_year = Column(Integer)
     description = Column(String)
     url = Column(String)
     poster = Column(String)
+
+class LikedMovies(Base):
+    __tablename__ = "liked_movies"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    movie_id = Column(Integer)
+
+class DislikedMovies(Base):
+    __tablename__ = "disliked_movies"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer)
+    movie_id = Column(Integer)
 
 
 class Order(Base):
