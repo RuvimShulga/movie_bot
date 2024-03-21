@@ -4,14 +4,13 @@ import json
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import *
 from aiogram import F
 import aiohttp
-import requests
 
 import keyboards
 import db_logic as db
-from states import Form, Family, Choice, Mode, CurrentMovie, Delete, Config
+from states import Delete, Config
 
 # Настройка логирования
 logging.basicConfig(
@@ -51,7 +50,7 @@ async def send_welcome(message: types.Message):
     await message.reply(f"Hello {user_id}!", reply_markup=keyboards.main_kb)
 
 @dp.message(F.text == "Следующий фильм")
-async def start_request(message: types.Message, state: FSMContext):
+async def start_request(message: types.Message):
     global url 
 
     await clean_all_inline_kb()
@@ -230,206 +229,6 @@ async def search_by_name(message: types.Message):
         await prepare_and_post_movie(movie_id, message)
 
 
-# async def get_recommendation(user_id):
-#     recommendation = orm.session.query(orm.UserRecommendation).filter(
-#         orm.UserRecommendation.user_id == user_id).first()
-
-#     if recommendation:
-#         rec_movie = recommendation.recommended_movie_id
-#         orm.session.delete(recommendation)
-#         orm.session.commit()
-
-#         return rec_movie
-#     return None
-
-
-# @dp.message(F.text == "Одиночный режим")
-# async def single_mode(message: types.Message):
-#     await message.answer("Теперь вы можете выбирать фильмы в свою собственную коллекцию!", reply_markup=keyboards.main_kb)
-
-
-# @dp.message(F.text == "Создать семью")
-# async def create_family(message: types.Message, state: FSMContext):
-#     await state.set_state(Family.family_name)
-#     await message.answer("Введите название для вашей семьи")
-
-
-# @dp.message(Family.family_name)
-# async def create_family_with_name(message: types.Message, state: FSMContext):
-#     family_name = message.text
-#     family = orm.Family(family_name=family_name, owner=message.from_user.id)
-#     orm.session.add(family)
-#     orm.session.commit()
-#     await add_owner_in_family(message.from_user.id)
-
-#     await message.answer(f"Семья {family_name} успешно создана")
-#     await state.clear()
-
-
-# @dp.message(F.text == "Выбрать семью")
-# async def select_family(message: types.Message, state: FSMContext):
-#     families = orm.session.query(orm.Family).all()
-#     for family in families:
-#         family_button = keyboards.KeyboardButton(text=family.family_name)
-#         keyboards.select_family_kb.keyboard[0].append(family_button)
-
-#     await state.set_state(Choice.choice)
-#     await message.answer("С помощью кнопок выберите семью", reply_markup=keyboards.select_family_kb)
-
-
-# @dp.message(Choice.choice)
-# async def move_to_family_room(message: types.Message, state: FSMContext):
-#     family = message.text
-
-#     await state.set_state(Mode.mode)
-#     await state.update_data(mode=family)
-#     print(await state.get_data())
-#     # await state.update_data(choice=family)
-#     await message.answer(f"Вы успешно переключились на комнату семьи {family}", reply_markup=keyboards.main_kb)
-
-
-
-
-
-# @dp.message(F.text == "Текущая семья")
-# async def current_family(message: types.Message, state: FSMContext):
-#     data = await state.get_data()
-#     current_family_name = data.get("mode")
-#     current_family_id = orm.session.query(orm.Family.id).filter(
-#         orm.Family.family_name == current_family_name).first()[0]
-#     # print(orm.session.query(orm.UsersInFamily).all())
-#     member_of_family = orm.session.query(orm.UsersInFamily.user_id).filter(
-#         orm.UsersInFamily.family_id == current_family_id).all()
-#     print(member_of_family)
-
-#     print(current_family_name, current_family_id)
-
-
-
-
-
-# @dp.callback_query(F.data == "accept")
-# async def accepting_in_family(callback: types.CallbackQuery, state: FSMContext):
-#     order = orm.session.query(orm.Order).filter(
-#         orm.Order.to_user == callback.from_user.id).all()[-1]
-#     order.status = "accepted"
-
-#     await add_user_in_family(callback.from_user.id, order.family)
-
-#     await callback.message.answer("Теперь вы в семье!")
-#     await bot.send_message(order.from_user, f"Ваш запрос к {db.get_username(order.to_user)} был принят!")
-
-#     orm.session.commit()
-
-#     await callback.message.edit_reply_markup()
-
-
-# @dp.callback_query(F.data == "reject")
-# async def rejecting(callback: types.CallbackQuery):
-#     order = orm.session.query(orm.Order).filter(
-#         orm.Order.to_user == callback.from_user.id).first()
-#     order.status = "rejected"
-
-#     await callback.message.answer("Запрос отклонен")
-#     await bot.send_message(order.from_user, f"Ваш запрос к {db.get_username(order.to_user)} был отклонен")
-
-#     orm.session.commit()
-
-#     await callback.message.edit_reply_markup()
-
-
-# @dp.message(F.text == "Добавить в семью")
-# async def add_user_to_family(message: types.Message, state: FSMContext):
-#     await state.set_state(Form.username)
-#     await message.answer("Введите username пользователя, которого хотите добавить в семью. @ не нужна!")
-
-
-# @dp.message(Form.username)
-# async def form_username(message: types.Message, state: FSMContext):
-#     await state.update_data(username=message.text)
-#     data = await state.get_data()
-
-#     to_family = data.get("mode")
-#     to_family_id = orm.session.query(orm.Family.id).filter(
-#         orm.Family.family_name == to_family).first()[0]
-
-#     print(to_family_id)
-#     from_username = message.from_user.username
-#     from_user_id = message.from_user.id
-
-#     to_username = data.get("username")
-#     try:
-#         to_user_id = db.get_user_id(to_username)
-#         await validation_and_send_request(to_family_id, from_username, to_username, from_user_id, to_user_id)
-#     except BaseException as e:
-#         await message.answer(f"Пользователь {to_username} не подключен к боту.")
-#         print(e)
-
-
-
-
-
-# async def add_recommendation(user_id, movie_id):
-#     families = orm.session.query(orm.UsersInFamily.family_id).filter(
-#         orm.UsersInFamily.user_id == user_id).all()
-#     # print(families)
-
-#     for family in families:
-#         users_in_family = orm.session.query(orm.UsersInFamily.user_id).filter(
-#             orm.UsersInFamily.family_id == family[0]).all()
-#         # print(users_in_family)
-#         for user in users_in_family:
-#             if user[0] == user_id:
-#                 continue
-#             new_rec = orm.UserRecommendation(
-#                 user_id=user[0], recommended_movie_id=movie_id)
-#             orm.session.add(new_rec)
-#             orm.session.commit()
-
-
-
-
-
-# async def add_user_in_family(user_id, family_id):
-#     user_family = orm.UsersInFamily(user_id=user_id, family_id=family_id)
-#     orm.session.add(user_family)
-#     orm.session.commit()
-
-
-# async def add_owner_in_family(user_id):
-#     family_id = orm.session.query(orm.Family.id).filter(
-#         orm.Family.owner == user_id).all()[-1][0]
-#     await add_user_in_family(user_id, family_id)
-
-
-# async def validation_and_send_request(to_family_id, from_username, to_username, from_user_id, to_user_id):
-    # resend = False
-    # order_exists = False
-    # try:
-    #     all_request_from_user = orm.session.query(orm.Order).filter(
-    #         orm.Order.from_user == from_user_id).all()
-    # except BaseException:
-    #     print("its first order")
-
-    # for request in all_request_from_user:
-    #     if request.to_user == to_user_id and request.family == to_family_id:
-    #         order_exists = True
-    #         await bot.send_message(from_user_id, f"Вы уже отправили запрос этому пользователю. Статус: {request.status}")
-    #         if request.status == 'rejected':
-    #             resend = True
-    #             await bot.send_message(from_user_id, "Запрос будет отправлен снова, так как был отклонен")
-    #         break
-    # else:
-    #     order = orm.Order(from_user=from_user_id, to_user=to_user_id,
-    #                       family=to_family_id, status='awaiting')
-    #     orm.session.add(order)
-    #     orm.session.commit()
-
-    # if resend or not order_exists:
-    #     await send_request_in_family(from_username, to_user_id)
-    #     await bot.send_message(from_user_id, f"Запрос успешно отправлен пользователю {to_username}")
-
-
 async def clean_all_inline_kb():
     for message in inline_messages:
         try:
@@ -437,11 +236,6 @@ async def clean_all_inline_kb():
         except Exception as e:
             print(f"Error: {e}")
         inline_messages.remove(message)
-
-
-# async def send_request_in_family(from_username, to_user_id):
-#     message = f"Вам пришел запрос на добавление в семью от {from_username}"
-#     await bot.send_message(to_user_id, message, reply_markup=keyboards.family_kb)
 
 
 async def main():
