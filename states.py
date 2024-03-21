@@ -1,27 +1,8 @@
 from aiogram.fsm.state import StatesGroup, State
 
-
-class Form(StatesGroup):
-    username = State()
-
-
-class Family(StatesGroup):
-    family_name = State()
-
 class Delete(StatesGroup):
     delete_movie = State()
 
 class Config(StatesGroup):
-    choice = State()
     collections = State()
 
-
-class Choice(StatesGroup):
-    choice = State()
-
-
-class Mode(StatesGroup):
-    mode = State()
-    
-class CurrentMovie(StatesGroup):
-    movie_id = State()
