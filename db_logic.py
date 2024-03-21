@@ -14,13 +14,38 @@ async def save_movie(movie_data):
     rating = float(movie_data["rating"]["imdb"])
     year = int(movie_data["year"])
     description = str(movie_data["description"])
-    trailer_url = str(movie_data["videos"]["trailers"][0]["url"])
+    try:
+        trailer_url = str(movie_data["videos"]["trailers"][0]["url"])
+    except BaseException:
+        trailer_url = ""
+    # trailer_url = str(movie_data["videos"]["trailers"][0]["url"])
     poster_url = str(movie_data["poster"]["url"])
 
     new_movie = orm.Movies(movie_id=id, movie_name=name, movie_rating=rating,
                            movie_year=year, description=description, url=trailer_url, poster=poster_url)
-    orm.session.add(new_movie)
-    orm.session.commit()
+    
+
+    try:
+        orm.session.add(new_movie)
+        orm.session.commit()
+    except orm.IntegrityError as e:
+        # Если возникает ошибка из-за нарушения ограничения уникальности,
+        # откатываем транзакцию и логируем ошибку
+        # await orm.session.rollback()
+        print(f"Ошибка при сохранении фильма: {e}")
+
+async def get_movie_by_id(movie_id: int):
+    """
+    Получает фильм из базы данных по его movie_id.
+    Возвращает объект фильма или None, если фильм не найден.
+    """
+    try:
+        # Используем метод query.get() для получения фильма по его movie_id
+        movie = orm.session.query(orm.Movies).filter(orm.Movies.movie_id == movie_id).first()
+        return movie
+    except Exception as e:
+        print(f"Ошибка при получении фильма: {e}")
+        return None
 
 async def add_liked_movie(user_id, movie_id):
     liked_movie = orm.LikedMovies(user_id=user_id, movie_id=movie_id)
@@ -89,6 +114,25 @@ async def get_movie_id(movie_name):
         return movie.movie_id
     else:
         return None
+    
+async def collections_empty():
+    return orm.session.query(orm.Collections).first() is None
+
+async def save_collection(item):
+    category = item["category"]
+    name = item["name"]
+    slug = item["slug"]
+
+    new_collection = orm.Collections(category=category, name=name, slug=slug)
+    orm.session.add(new_collection)
+    orm.session.commit()
+
+
+async def get_collections():
+    return orm.session.query(orm.Collections).all()
+
+async def get_slug_on_collection_name(name):
+    return orm.session.query(orm.Collections).filter(orm.Collections.name == name).first().slug
 
 # import sqlite3
 

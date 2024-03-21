@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Integer, Float
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -15,7 +16,7 @@ class Users(Base):
 class Movies(Base):
     __tablename__ = "movies"
     id = Column(Integer, primary_key=True)
-    movie_id = Column(Integer)
+    movie_id = Column(Integer, unique=True)
     movie_name = Column(String)
     movie_rating = Column(Float)
     movie_year = Column(Integer)
@@ -34,6 +35,13 @@ class DislikedMovies(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer)
     movie_id = Column(Integer)
+
+class Collections(Base):
+    __tablename__ = "collections"
+    id = Column(Integer, primary_key=True)
+    category = Column(String)
+    name = Column(String)
+    slug = Column(String)
 
 
 class Order(Base):

@@ -11,6 +11,10 @@ class Family(StatesGroup):
 class Delete(StatesGroup):
     delete_movie = State()
 
+class Config(StatesGroup):
+    choice = State()
+    collections = State()
+
 
 class Choice(StatesGroup):
     choice = State()
